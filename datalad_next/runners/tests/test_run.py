@@ -54,6 +54,36 @@ def test_run_instant_kill():
     assert sp.runner.process.returncode is not None
 
 
+def test_run_kill_non_terminating():
+
+    py_prog = '''
+import sys
+import time
+
+i = 0
+while True:
+    try:
+        print(i, flush=True)
+        i += 1
+        time.sleep(1)
+    except BaseException as e:
+        pass
+'''
+
+    with run(
+        cmd=[sys.executable, '-c', py_prog],
+        protocol_class=StdOutCaptureGeneratorProtocol,
+        timeout=1.0
+    ) as sp:
+        for i in range(3):
+            print(next(sp))
+    if os.name == 'posix':
+        print(sp.return_code)
+        #assert sp.runner.process.returncode < 0
+    print(sp.return_code)
+    #assert sp.runner.process.returncode is not None
+
+
 def test_run_cwd(tmp_path):
     with run([
         sys.executable, '-c',

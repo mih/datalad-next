@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Generator
 from contextlib import contextmanager
 from pathlib import Path
 from queue import Queue
@@ -22,6 +23,37 @@ from . import (
 )
 
 
+class TimeoutHandlingGenerator(Generator):
+    def __init__(self, result_generator):
+        self.result_generator = result_generator
+        self.countdown = None
+        self.first_call = False
+        self.return_code = None
+
+    def send(self, value):
+        """ Send function that filters and handles timeouts
+
+        If `self.countdown` is not None and the first process timeout is
+        encountered, a termination request is sent to the running process.
+        If this is not the first process timeout, countdown is decremented by
+        one. If countdown reaches zero, the process is killed.
+        """
+        result = next(self.result_generator)
+        if isinstance(result, tuple):
+            if result == ('timeout', None):
+                if self.countdown is not None:
+                    if self.first_call is True:
+                        self.result_generator.runner.process.terminate()
+                        self.first_call = False
+                        return
+                    self.countdown -= 1
+                    if self.countdown <= 0:
+                        self.result_generator.runner.process.kill()
+
+    def throw(self, exception_type, value=None, trace_back=None):
+        return Generator.throw(self, exception_type, value, trace_back)
+
+
 @contextmanager
 def run(
     cmd: list,
@@ -39,26 +71,22 @@ def run(
         stdin=DEVNULL if input is None else input,
         cwd=cwd,
         timeout=timeout,
+        exception_on_error=False,
     )
+    result_generator = runner.run()
+    user_generator = TimeoutHandlingGenerator(result_generator=result_generator)
     try:
-        yield runner.run()
+        yield user_generator
     finally:
         # if we get here the subprocess has no business running
         # anymore. When run() exited normally, this should
-        # already be the case -- we make sure that no zombies
-        # accumulate
-        if runner.process is not None:
-            proc = runner.process
-            # ssk friendly to terminate (SIGTERM)
-            proc.terminate()
-            # let the process die and exhaust its output pipe
-            # so it can be garbage collected properly.
-            try:
-                # give it 10s
-                proc.communicate(timeout=10)
-            except TimeoutExpired:
-                # the process did not manage to end before the
-                # timeout -> SIGKILL
-                proc.kill()
-                # we still need to exhaust its output pipes
-                proc.communicate()
+        # already be the case. To make sure that no zombies
+        # accumulate, we arm the `TimeoutHandlingGenerator` by
+        # setting its countdown attribute to a number N . This will
+        # trigger a terminate-signal to the process at the next
+        # timeout and after N additional timeouts the process will
+        # receive a kill-signal.
+        user_generator.countdown = 2
+        tuple(user_generator)
+        # Copy the return code to the user-facing generator
+        user_generator.return_code = result_generator.return_code

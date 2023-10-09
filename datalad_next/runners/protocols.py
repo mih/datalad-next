@@ -27,5 +27,6 @@ class StdOutCaptureGeneratorProtocol(StdOutCapture, GeneratorMixIn):
         assert fd == 1
         self.send_result(data)
 
-    def timeout(self, fd):
-        raise TimeoutError(f"Runner timeout {fd}")
+    def timeout(self, fd) -> bool:
+        self.send_result(('timeout', fd))
+        return False
