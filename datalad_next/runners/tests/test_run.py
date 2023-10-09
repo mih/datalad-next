@@ -14,15 +14,16 @@ from ..run import run
 
 
 def test_run_timeout():
-    with pytest.raises(TimeoutError):
-        with run([
-            sys.executable, '-c',
-            'import time; time.sleep(3)'],
-            StdOutCaptureGeneratorProtocol,
-            timeout=1
-        ) as res:
-            # must poll, or timeouts are not checked
-            list(res)
+    with run([
+        sys.executable, '-c',
+        'import time; time.sleep(3)'],
+        StdOutCaptureGeneratorProtocol,
+        timeout=1
+    ) as res:
+        # must poll, or timeouts are not checked
+        timeouts = set([r for r in res if r[0] == 'timeout'])
+        assert ('timeout', None) in timeouts
+        assert ('timeout', 1) in timeouts
 
 
 def test_run_kill_on_exit():
@@ -30,15 +31,16 @@ def test_run_kill_on_exit():
         sys.executable, '-c',
         'import time; print("mike", flush=True); time.sleep(10)'],
         StdOutCaptureGeneratorProtocol,
+        timeout=1
     ) as res:
         assert next(res).rstrip(b'\r\n') == b'mike'
     # here the process must be killed be the exit of the contextmanager
     if os.name == 'posix':
         # on posix platforms a negative returncode of -X indicates
         # a "killed by signal X"
-        assert res.runner.process.returncode < 0
+        assert res.return_code < 0
     # on any system the process must be dead now (indicated by a return code)
-    assert res.runner.process.returncode is not None
+    assert res.return_code is not None
 
 
 def test_run_instant_kill():
@@ -46,12 +48,13 @@ def test_run_instant_kill():
         sys.executable, '-c',
         'import time; time.sleep(3)'],
         StdOutCaptureGeneratorProtocol,
+        timeout=1,
     ) as sp:
         # we let it terminate instantly
         pass
     if os.name == 'posix':
-        assert sp.runner.process.returncode < 0
-    assert sp.runner.process.returncode is not None
+        assert sp.return_code < 0
+    assert sp.return_code is not None
 
 
 def test_run_kill_non_terminating():

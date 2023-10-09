@@ -16,6 +16,8 @@ from typing import (
 )
 
 from datalad.runner.nonasyncrunner import _ResultGenerator
+from datalad.runner.protocol import GeneratorMixIn
+
 
 from . import (
     Protocol,
@@ -39,16 +41,16 @@ class TimeoutHandlingGenerator(Generator):
         one. If countdown reaches zero, the process is killed.
         """
         result = next(self.result_generator)
-        if isinstance(result, tuple):
-            if result == ('timeout', None):
-                if self.countdown is not None:
-                    if self.first_call is True:
-                        self.result_generator.runner.process.terminate()
-                        self.first_call = False
-                        return
-                    self.countdown -= 1
-                    if self.countdown <= 0:
-                        self.result_generator.runner.process.kill()
+        if result == ('timeout', None):
+            if self.countdown is not None:
+                if self.first_call is True:
+                    self.result_generator.runner.process.terminate()
+                    self.first_call = False
+                    return result
+                self.countdown -= 1
+                if self.countdown <= 0:
+                    self.result_generator.runner.process.kill()
+        return result
 
     def throw(self, exception_type, value=None, trace_back=None):
         return Generator.throw(self, exception_type, value, trace_back)
@@ -73,20 +75,27 @@ def run(
         timeout=timeout,
         exception_on_error=False,
     )
-    result_generator = runner.run()
-    user_generator = TimeoutHandlingGenerator(result_generator=result_generator)
-    try:
-        yield user_generator
-    finally:
-        # if we get here the subprocess has no business running
-        # anymore. When run() exited normally, this should
-        # already be the case. To make sure that no zombies
-        # accumulate, we arm the `TimeoutHandlingGenerator` by
-        # setting its countdown attribute to a number N . This will
-        # trigger a terminate-signal to the process at the next
-        # timeout and after N additional timeouts the process will
-        # receive a kill-signal.
-        user_generator.countdown = 2
-        tuple(user_generator)
-        # Copy the return code to the user-facing generator
-        user_generator.return_code = result_generator.return_code
+    result_or_generator = runner.run()
+    if issubclass(protocol_class, GeneratorMixIn):
+        user_generator = TimeoutHandlingGenerator(result_generator=result_or_generator)
+        user_generator.runner = result_or_generator.runner
+        try:
+            yield user_generator
+        finally:
+            # if we get here the subprocess has no business running
+            # anymore. When run() exited normally, this should
+            # already be the case. To make sure that no zombies
+            # accumulate, we arm the `TimeoutHandlingGenerator` by
+            # setting its countdown attribute to a number N . This will
+            # trigger a terminate-signal to the process at the next
+            # timeout and after N additional timeouts the process will
+            # receive a kill-signal.
+            user_generator.countdown = 2
+            tuple(user_generator)
+            # Copy the return code to the user-facing generator
+            user_generator.return_code = result_or_generator.return_code
+    else:
+        try:
+            yield result_or_generator
+        finally:
+            pass
