@@ -1,7 +1,11 @@
+"""
+ Generator to ensure that a pattern is completely contained in single chunks,
+ if it is present in the input chunks.
+"""
+
 from __future__ import annotations
 
 from typing import (
-    Callable,
     Generator,
     Iterable,
 )
@@ -55,7 +59,7 @@ def pattern_processor(iterable: Iterable,
         return False
 
     # Join data chunks until they are sufficiently long to contain the pattern,
-    # i.e. have a least the size: `len(pattern)`. Continue joining, if the chunk
+    # i.e. have at least size: `len(pattern)`. Continue joining, if the chunk
     # ends with a prefix of the pattern.
     current_chunk = None
     for data_chunk in iterable:

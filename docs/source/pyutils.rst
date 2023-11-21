@@ -23,6 +23,7 @@ packages.
    datasets
    exceptions
    iter_collections
+   processors
    runners
    tests.fixtures
    types

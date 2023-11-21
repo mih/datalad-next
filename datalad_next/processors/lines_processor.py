@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import sys
 from typing import (
     Generator,
     Iterable,
@@ -16,7 +15,46 @@ def lines_processor(iterable: Iterable[bytes | str],
                     separator: str | bytes | None = None,
                     keep_ends: bool = False,
                     ) -> Generator[bytes | str, None, None]:
+    """ Generator that emits only complete lines from the input iterable
 
+    This generator wraps another generator and yields only complete lines, which
+    are built from the output of `iterable`. The lines are split either by
+    `separator`, if `separator` is not `None`, or by the line-separators that
+    are built into `splitlines`.
+
+    The generator works on strings or bytes, depending on the type of the first
+    element in `iterable`. During its runtime, the type of the elements in
+    `iterable` must not change. If `separator` is not `None`, its type must
+    match the type of the elements in `iterable`.
+
+    The complexity of line-splitting without a defined separator is higher than
+    the complexity of line-splitting with a defined separator (this is due to
+    the externally unavailable set of line-separators that are built into
+    `splitlines`).
+
+    Also, not keeping ends is faster than keeping ends, when a separator is
+    defined.
+
+    EOF ends all lines, but will never be present in the result, even if
+    ``keep_ends`` is ``True``.
+
+    Parameters
+    ----------
+    iterable: Iterable[bytes | str]
+        The iterable that yields the input data
+    separator: str | bytes | None
+        The separator that is used to split the lines. If `None`, the lines are
+        split by the line-separators that are built into `splitlines`.
+    keep_ends: bool
+        If `True`, the line-separator will be contained in each yielded line. If
+        `False`, the line-separator will not be contained in the yielded lines.
+
+    Yields
+    ------
+    bytes | str
+        The lines that are built from the input data. The type of the yielded
+        lines depends on the type of the first element in `iterable`.
+    """
     if separator is None:
         yield from _split_lines(iterable, keep_ends=keep_ends)
     else:

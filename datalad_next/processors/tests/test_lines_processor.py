@@ -1,25 +1,8 @@
 from __future__ import annotations
 
+import pytest
+
 from ..lines_processor import lines_processor
-
-
-text = '''This is the first line of text
-the second line of text, followed by an empty line
-
-4th line of text with some non-ASCII characters: äöß
-
-
-{"key0": "some text \\u1822"}
-
-7th line with interesting characters: € 😃👽
-an a non-terminated line'''
-
-text_lines = text.splitlines(keepends=True)
-text_chunks = [
-    text[i:i+100]
-    for i in range(0, len(text) + 100, 100)
-]
-
 
 
 text_chunks = [
@@ -29,33 +12,34 @@ text_chunks = [
     '\n'
 ]
 byte_chunks = [chunk.encode() for chunk in text_chunks]
+text_chunks_other = [chunk.replace('\n', '\r\n') for chunk in text_chunks]
+byte_chunks_other = [chunk.encode() for chunk in text_chunks_other]
 
 
-def test_assembling_and_splitting():
-    r = tuple(lines_processor(text_chunks, keep_ends=True))
+@pytest.mark.parametrize(
+    'input_chunks,separator',
+    [
+        (text_chunks, '\n'),
+        (byte_chunks, b'\n'),
+        (text_chunks_other, '\r\n'),
+        (byte_chunks_other, b'\r\n')
+    ]
+)
+def test_assembling_and_splitting(input_chunks, separator):
+    empty = input_chunks[0][:0]
+
+    r = tuple(lines_processor(input_chunks, keep_ends=True))
     assert len(r) == 3
-    assert ''.join(r) == ''.join(text_chunks)
+    assert empty.join(r) == empty.join(input_chunks)
 
-    s = tuple(lines_processor(byte_chunks, keep_ends=True))
-    assert len(s) == 3
-    assert b''.join(s) == b''.join(byte_chunks)
-
-    r = tuple(lines_processor(text_chunks, separator='\n', keep_ends=True))
+    r = tuple(lines_processor(input_chunks, separator=separator, keep_ends=True))
     assert len(r) == 3
-    assert ''.join(r) == ''.join(text_chunks)
+    assert empty.join(r) == empty.join(input_chunks)
 
-    s = tuple(lines_processor(byte_chunks, separator=b'\n', keep_ends=True))
-    assert len(s) == 3
-    assert b''.join(s) == b''.join(byte_chunks)
-
-    r = tuple(lines_processor(text_chunks, separator='\n'))
+    r = tuple(lines_processor(input_chunks, separator=separator))
     assert len(r) == 3
-    assert ''.join(r) == ''.join(text_chunks).replace('\n', '')
+    assert empty.join(r) == empty.join(input_chunks).replace(separator, empty)
 
-    s = tuple(lines_processor(byte_chunks, separator=b'\n'))
-    assert len(s) == 3
-    assert b''.join(s) == b''.join(byte_chunks).replace(b'\n', b'')
-
-    r = tuple(lines_processor(text_chunks + ['aaa'], separator='\n', keep_ends=True))
+    r = tuple(lines_processor(input_chunks + input_chunks[:1], separator=separator, keep_ends=True))
     assert len(r) == 4
-    assert r[3] == 'aaa'
+    assert r[3] == input_chunks[0]
