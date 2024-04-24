@@ -282,8 +282,7 @@ def assert_ssh_access(
         ssh_bin,
         '-i', seckey,
         '-p', port,
-        f'{login}@{host}',
-        'bash',
+        f'{login}@{host}'
     ]
     # now try if this is a viable configuration
     # verify execute and write permissions (implicitly also POSIX path handling
