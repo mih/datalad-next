@@ -466,7 +466,7 @@ def test_fixed_length_response_generator_powershell():
     ) as powershell:
         result = loads(powershell('$PSVersionTable|ConvertTo-Json').stdout)['PSVersion']
         powershell_version = 100 * result['Major'] + result['Minor']
-        if powershell_version < 501:
+        if powershell_version == 501 and result['Build'] < 19041:
             pytest.skip(
                 f'skipping test because of a bug in powershell '
                 f'version {powershell_version}'
