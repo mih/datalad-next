@@ -1,5 +1,7 @@
 """DataLad NEXT extension"""
 
+from __future__ import annotations
+
 __docformat__ = 'restructuredtext'
 
 __all__ = [
@@ -10,6 +12,10 @@ __all__ = [
 ]
 
 import logging
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from datalad_next.commands import ResultHandler
 
 from datalad_next._version import __version__
 
@@ -18,6 +24,29 @@ from datalad_next.patches import enabled as enabled  # noqa: PLC0414
 
 # TODO: REMOVE FOR V2.0
 lgr = logging.getLogger('datalad.next')
+
+
+_command_result_handler_class: type[ResultHandler] | None = None
+
+
+def set_command_result_handler_class(handler_cls: type[ResultHandler] | None):
+    """Set a global result handler class for use by `eval_results`
+
+    This must be a class implementing the `ResultHandler` interface.
+
+    If set to `None`, a default implementation will be used.
+    """
+    global _command_result_handler_class  # noqa: PLW0603
+    _command_result_handler_class = handler_cls
+
+
+def get_command_result_handler_class() -> type[ResultHandler] | None:
+    """Get the set a global result handler class for use by `eval_results`
+
+    See `set_command_result_handler_class()` for more information.
+    """
+    return _command_result_handler_class
+
 
 # Defines a datalad command suite.
 # This variable must be bound as a setuptools entrypoint
