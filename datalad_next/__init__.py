@@ -100,14 +100,14 @@ command_suite = (
 
 
 # patch datalad-core
-# register additional configuration items in datalad-core
-from datalad.support.extensions import register_config
-
 import datalad_next.patches.enabled
 from datalad_next.constraints import (  # noqa: E402
     EnsureBool,
     EnsureChoice,
 )
+
+# register additional configuration items in datalad-core
+from datalad.support.extensions import register_config
 
 register_config(
     'datalad.credentials.repeat-secret-entry',
